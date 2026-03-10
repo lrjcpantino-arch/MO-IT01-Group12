@@ -1,0 +1,17 @@
+import java.util.Scanner;
+
+public class Main {
+    public static void main(String[] args) {
+
+        Scanner input = new Scanner(System.in);
+        double totalHours = 0;
+
+        for(int day = 1; day <= 7; day++){
+            System.out.print("Enter hours worked for Day " + day + ": ");
+            double hours = input.nextDouble();
+            totalHours += hours;
+        }
+
+        System.out.println("Total hours worked in a week: " + totalHours);
+    }
+}
