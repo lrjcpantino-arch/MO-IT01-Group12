@@ -5,14 +5,19 @@ import java.io.FileReader;
 import java.time.Duration;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Scanner;
+import java.util.*;
 
-public class MotorPhFinalOutput{
-    public static void main(String[] args){
+public class MotorPhFinalOutput {
+
+    public static void main(String[] args) {
+
         Scanner input = new Scanner(System.in);
 
         String employeeFile = "resources/MPHD1 Employee Details.csv";
         String attendanceFile = "resources/employeesMPHD4.csv";
+
+        //  Load attendance once into a Map
+        Map<String, List<String[]>> attendanceMap = loadAttendance(attendanceFile);
 
         System.out.println("========== MOTORPH PAYROLL SYSTEM ==========");
 
@@ -44,16 +49,17 @@ public class MotorPhFinalOutput{
 
                 while ((line = br.readLine()) != null) {
                     String[] data = line.split(",");
+                    if (data.length < 20) continue;
                     if (inputId.equals(data[0]) && inputPassword.equals(data[2])) {
                         loginSuccess = true;
                         employeeName = data[1];
-                        hourlyRate = Double.parseDouble(data[19].replace("\"","").trim());
+                        hourlyRate = Double.parseDouble(data[19].replace("\"", "").trim());
                         break;
                     }
                 }
 
             } catch (Exception e) {
-                System.out.println("Error reading employee file.");
+                e.printStackTrace();
                 return;
             }
         }
@@ -64,10 +70,7 @@ public class MotorPhFinalOutput{
         }
 
         System.out.println("\nLogin Successful");
-        if (isAdmin)
-            System.out.println("Welcome Administrator");
-        else
-            System.out.println("Welcome " + employeeName);
+        System.out.println(isAdmin ? "Welcome Administrator" : "Welcome " + employeeName);
 
         // ================= ADMIN SECTION =================
         if (isAdmin) {
@@ -97,14 +100,15 @@ public class MotorPhFinalOutput{
                             String line;
                             while ((line = br.readLine()) != null) {
                                 String[] data = line.split(",");
+                                if (data.length < 20) continue;
                                 if (data[0].equals(empId)) {
                                     empName = data[1];
-                                    empRate = Double.parseDouble(data[19].replace("\"","").trim());
+                                    empRate = Double.parseDouble(data[19].replace("\"", "").trim());
                                     break;
                                 }
                             }
                         } catch (Exception e) {
-                            System.out.println("Error reading employee file.");
+                            e.printStackTrace();
                             break;
                         }
 
@@ -113,7 +117,9 @@ public class MotorPhFinalOutput{
                             break;
                         }
 
-                        double[] hours = computeMonthlyHours(empId, month, attendanceFile);
+                        // Use preloaded Map
+                        double[] hours = computeMonthlyHours(empId, month, attendanceMap);
+
                         double firstHalf = hours[0];
                         double secondHalf = hours[1];
 
@@ -123,7 +129,7 @@ public class MotorPhFinalOutput{
 
                         System.out.println("\nEmployee: " + empName);
                         displayPayroll(month, firstHalf, secondHalf, gross1, gross2);
-                        calculateAndPrintDeductions(totalGross);
+                        calculateAndPrintDeductions(totalGross); // ✅ YOUR DEDUCTIONS LOGIC
 
                         break;
 
@@ -134,21 +140,24 @@ public class MotorPhFinalOutput{
                                 "Emp No.", "Last Name", "First Name", "Birthday", "Date", "Clock In", "Clock Out");
                         System.out.println("---------------------------------------------------------------------------------------------------------------");
 
+                        // still reading from file for display
                         try (BufferedReader br = new BufferedReader(new FileReader(attendanceFile))) {
                             br.readLine();
                             String line;
                             while ((line = br.readLine()) != null) {
                                 String[] data = line.split(",");
+                                if (data.length < 7) continue;
                                 System.out.printf("%-12s %-18s %-18s %-12s %-12s %-10s %-10s\n",
-                                        data[0], data[1].replace("\"",""), data[2].replace("\"",""), data[3], data[4], data[5], data[6]);
+                                        data[0], data[1].replace("\"", ""), data[2].replace("\"", ""),
+                                        data[3], data[4], data[5], data[6]);
                             }
                         } catch (Exception e) {
-                            System.out.println("Error reading attendance file.");
+                            e.printStackTrace();
                         }
 
                         break;
 
-                    case 3: // Logout
+                    case 3:
                         running = false;
                         break;
 
@@ -163,7 +172,8 @@ public class MotorPhFinalOutput{
             System.out.print("Enter Month to View Payslip (1-12): ");
             int month = input.nextInt();
 
-            double[] hours = computeMonthlyHours(inputId, month, attendanceFile);
+            double[] hours = computeMonthlyHours(inputId, month, attendanceMap);
+
             double firstHalf = hours[0];
             double secondHalf = hours[1];
 
@@ -173,50 +183,61 @@ public class MotorPhFinalOutput{
             double totalGross = gross1 + gross2;
 
             displayPayroll(month, firstHalf, secondHalf, gross1, gross2);
-            calculateAndPrintDeductions(totalGross);
-            System.out.println("DEBUG Hourly Rate: " + hourlyRate);
+            calculateAndPrintDeductions(totalGross); 
         }
 
         input.close();
     }
 
-    // ================= READ ATTENDANCE =================
-    static double[] computeMonthlyHours(String employeeId, int month, String filePath) {
-        double firstHalf = 0;
-        double secondHalf = 0;
-
-        DateTimeFormatter timeFormat = DateTimeFormatter.ofPattern("H:mm");
-
+    // ================= LOAD ATTENDANCE INTO MAP =================
+    static Map<String, List<String[]>> loadAttendance(String filePath) {
+        Map<String, List<String[]>> map = new HashMap<>();
         try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
-            br.readLine();
+            br.readLine(); // skip header
             String line;
             while ((line = br.readLine()) != null) {
                 String[] data = line.split(",");
-                if (!data[0].equals(employeeId)) continue;
-
-                String[] dateParts = data[4].split("/");
-                int recordMonth = Integer.parseInt(dateParts[0]);
-                int day = Integer.parseInt(dateParts[1]);
-                int year = Integer.parseInt(dateParts[2]);
-
-                if (year != 2024 || recordMonth != month) continue;
-
-                LocalTime login = LocalTime.parse(data[5].trim(), timeFormat);
-                LocalTime logout = LocalTime.parse(data[6].trim(), timeFormat);
-
-                double hours = computeHours(login, logout);
-                if (day <= 15) firstHalf += hours;
-                else secondHalf += hours;
+                if (data.length < 7) continue;
+                String empId = data[0];
+                map.putIfAbsent(empId, new ArrayList<>());
+                map.get(empId).add(data);
             }
-
         } catch (Exception e) {
-            System.out.println("Error reading attendance file.");
+            e.printStackTrace();
         }
+        return map;
+    }
 
+    // ================= COMPUTE MONTHLY HOURS =================
+    static double[] computeMonthlyHours(String empId, int month, Map<String, List<String[]>> map) {
+        double firstHalf = 0;
+        double secondHalf = 0;
+
+        DateTimeFormatter format = DateTimeFormatter.ofPattern("H:mm");
+
+        List<String[]> records = map.get(empId);
+        if (records == null) return new double[]{0, 0};
+
+        for (String[] data : records) {
+            if (data.length < 7) continue;
+            String[] dateParts = data[4].split("/");
+            int recordMonth = Integer.parseInt(dateParts[0]);
+            int day = Integer.parseInt(dateParts[1]);
+            int year = Integer.parseInt(dateParts[2]);
+
+            if (year != 2024 || recordMonth != month) continue;
+
+            LocalTime login = LocalTime.parse(data[5].trim(), format);
+            LocalTime logout = LocalTime.parse(data[6].trim(), format);
+
+            double hours = computeHours(login, logout);
+            if (day <= 15) firstHalf += hours;
+            else secondHalf += hours;
+        }
         return new double[]{firstHalf, secondHalf};
     }
 
-    // ================= HOURS COMPUTATION =================
+    // ================= COMPUTE DAILY HOURS =================
     static double computeHours(LocalTime login, LocalTime logout) {
         LocalTime graceTime = LocalTime.of(8, 10);
         LocalTime cutoffTime = LocalTime.of(17, 0);
@@ -259,10 +280,10 @@ public class MotorPhFinalOutput{
 
         System.out.println("\nCutoff Date: " + monthName + " 16 to 30");
         System.out.println("Total Hours Worked : " + secondHalf);
-        System.out.println("Gross Salary: PHP " + gross2); 
+        System.out.println("Gross Salary: PHP " + gross2);
     }
 
-    // ================= DEDUCTIONS =================
+    // ================= YOUR ORIGINAL DEDUCTIONS =================
     public static void calculateAndPrintDeductions(double grossSalary) {
 
         double[] grossSalaryLimits = {3249,3250,3750,4250,4750,5250,5750,6250,6750,7250,7750,8250,8750,9250,9750,10250,10750,11250,11750,12250,12750,13250,13750,14250,14750,15250,15750,16250,16750,17250,17750,18250,18750,19250,19750,20250,20750,21250,21750,22250,22750,23250,23750,24250,24750};
