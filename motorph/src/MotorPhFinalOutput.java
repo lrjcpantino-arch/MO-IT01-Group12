@@ -1,3 +1,37 @@
+/**
+ * MOTORPH PAYROLL SYSTEM
+ * 
+ * Business Rules:
+ * - Employee login: Validated via employee CSV file (ID and password).
+ * - Admin login: Fixed credentials (ID: 13579 / Password: 12345).
+ * - Attendance records:
+ *     - Loaded once at program start into memory (Map<String, List<String[]>>) for efficiency.
+ *     - Attendance is split by month and cutoff:
+ *         - 1st cutoff: Days 1-15
+ *         - 2nd cutoff: Days 16-30
+ * - Work hours computation:
+ *     - 10-minute grace period: Employees arriving on or before 8:10 AM are considered on time and get full 8 hours.
+ *     - Mandatory lunch break: 1-hour deduction applied if minutes worked exceed 60 minutes.
+ *     - Maximum working hours per day: 8 hours.
+ *     - Clock-out cutoff: 5:00 PM.
+ * - Salary computation:
+ *     - Gross salary = hours worked × hourly rate.
+ *     - Net pay = gross salary – deductions.
+ * - Government deductions applied:
+ *     - SSS based on salary brackets.
+ *     - PhilHealth: 3% of gross salary.
+ *     - Pag-Ibig: 3% for 1000-1500 salary, 4% for >1500.
+ *     - Withholding tax based on gross salary tiers.
+ * - Admin can:
+ *     - Compute any employee salary for a given month.
+ *     - View full employee attendance list.
+ * - Employee can:
+ *     - View their own payslip for a given month.
+ *
+ * Author: Your Name
+ * Date: 2026-03-21
+ */
+
 package com.mycompany.motorph;
 
 import java.io.BufferedReader;
